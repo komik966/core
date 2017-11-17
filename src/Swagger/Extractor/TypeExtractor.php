@@ -11,23 +11,25 @@
 
 declare(strict_types=1);
 
-namespace ApiPlatform\Core\Swagger\Serializer;
+namespace ApiPlatform\Core\Swagger\Extractor;
 
 use ApiPlatform\Core\Api\ResourceClassResolverInterface;
 use ApiPlatform\Core\Metadata\Resource\Factory\ResourceMetadataFactoryInterface;
+use Swagger\DTO\Definition;
 use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\Serializer\Serializer;
 
 final class TypeExtractor
 {
     private $resourceClassResolver;
     private $resourceMetadataFactory;
-    private $definitionNormalizer;
+    private $serializer;
 
-    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, DefinitionNormalizer $definitionNormalizer)
+    public function __construct(ResourceMetadataFactoryInterface $resourceMetadataFactory, ResourceClassResolverInterface $resourceClassResolver, Serializer $serializer)
     {
         $this->resourceMetadataFactory = $resourceMetadataFactory;
         $this->resourceClassResolver = $resourceClassResolver;
-        $this->definitionNormalizer = $definitionNormalizer;
+        $this->serializer = $serializer;
     }
 
     /**
@@ -37,15 +39,14 @@ final class TypeExtractor
      * @param bool         $isCollection
      * @param string       $className
      * @param bool         $readableLink
-     * @param \ArrayObject $definitions
      * @param array|null   $serializerContext
      *
      * @return array
      */
-    public function getType(string $type, bool $isCollection, string $className = null, bool $readableLink = null, \ArrayObject $definitions, array $serializerContext = null): array
+    public function getType(string $type, bool $isCollection, string $className = null, bool $readableLink = null, array $serializerContext = null): array
     {
         if ($isCollection) {
-            return ['type' => 'array', 'items' => $this->getType($type, false, $className, $readableLink, $definitions, $serializerContext)];
+            return ['type' => 'array', 'items' => $this->getType($type, false, $className, $readableLink, $serializerContext)];
         }
 
         if (Type::BUILTIN_TYPE_STRING === $type) {
@@ -78,9 +79,10 @@ final class TypeExtractor
             }
 
             if (true === $readableLink) {
-                return ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer->normalize($definitions,
-                    $this->resourceMetadataFactory->create($className),
-                    $className, $serializerContext)
+                return ['$ref' => sprintf('#/definitions/%s',
+                    $this->serializer->normalize(
+                        new Definition($this->resourceMetadataFactory->create($className), $className, $serializerContext)
+                    )
                 )];
             }
         }

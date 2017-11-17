@@ -40,12 +40,11 @@ final class FilterParametersNormalizer implements NormalizerInterface
      * @param string           $resourceClass
      * @param string           $operationName
      * @param ResourceMetadata $resourceMetadata
-     * @param \ArrayObject     $definitions
      * @param array|null       $serializerContext
      *
      * @return array
      */
-    public function normalize(string $resourceClass, string $operationName, ResourceMetadata $resourceMetadata, \ArrayObject $definitions, array $serializerContext = null): array
+    public function normalize(string $resourceClass, string $operationName, ResourceMetadata $resourceMetadata, array $serializerContext = null): array
     {
         if (null === $this->filterLocator) {
             return [];
@@ -64,7 +63,7 @@ final class FilterParametersNormalizer implements NormalizerInterface
                     'in' => 'query',
                     'required' => $data['required'],
                 ];
-                $parameter += $this->typeExtractor->getType($data['type'], false, null, null, $definitions, $serializerContext);
+                $parameter += $this->typeExtractor->getType($data['type'], false, null, null, $serializerContext);
 
                 if (isset($data['swagger'])) {
                     $parameter = $data['swagger'] + $parameter;

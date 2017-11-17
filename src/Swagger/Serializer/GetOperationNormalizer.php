@@ -36,6 +36,7 @@ final class GetOperationNormalizer implements NormalizerInterface
         $this->paginationPageParameterName = $paginationPageParameterName;
         $this->itemsPerPageParameterName = $itemsPerPageParameterName;
     }
+
     /**
      * @param \ArrayObject     $pathOperation
      * @param array            $mimeTypes
@@ -44,14 +45,13 @@ final class GetOperationNormalizer implements NormalizerInterface
      * @param string           $resourceClass
      * @param string           $resourceShortName
      * @param string           $operationName
-     * @param \ArrayObject     $definitions
      *
      * @return \ArrayObject
      */
-    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName, \ArrayObject $definitions)
+    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName)
     {
         $serializerContext = $this->contextExtractor->getSerializerContext($operationType, false, $resourceMetadata, $operationName);
-        $responseDefinitionKey = $this->definitionNormalizer->normalize($definitions, $resourceMetadata, $resourceClass, $serializerContext);
+        $responseDefinitionKey = $this->definitionNormalizer->normalize($resourceMetadata, $resourceClass, $serializerContext);
 
         $pathOperation['produces'] ?? $pathOperation['produces'] = $mimeTypes;
 
@@ -67,7 +67,7 @@ final class GetOperationNormalizer implements NormalizerInterface
                 ],
             ];
 
-            if (!isset($pathOperation['parameters']) && $parameters = $this->filterParametersNormalizer->normalize($resourceClass, $operationName, $resourceMetadata, $definitions, $serializerContext)) {
+            if (!isset($pathOperation['parameters']) && $parameters = $this->filterParametersNormalizer->normalize($resourceClass, $operationName, $resourceMetadata, $serializerContext)) {
                 $pathOperation['parameters'] = $parameters;
             }
 

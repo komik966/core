@@ -17,6 +17,9 @@ use ApiPlatform\Core\Metadata\Property\Factory\PropertyMetadataFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\Factory\PropertyNameCollectionFactoryInterface;
 use ApiPlatform\Core\Metadata\Property\PropertyMetadata;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
+use ApiPlatform\Core\Swagger\Extractor\TypeExtractor;
+use Swagger\DTO\Definition;
+use Swagger\Pool\DefinitionPool;
 use Symfony\Component\Serializer\NameConverter\NameConverterInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
@@ -27,31 +30,31 @@ final class DefinitionNormalizer implements NormalizerInterface
     private $propertyMetadataFactory;
     private $nameConverter;
     private $typeExtractor;
+    private $definitionPool;
 
 
-    public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, TypeExtractor $typeExtractor, NameConverterInterface $nameConverter = null)
+    public function __construct(PropertyNameCollectionFactoryInterface $propertyNameCollectionFactory, PropertyMetadataFactoryInterface $propertyMetadataFactory, TypeExtractor $typeExtractor, DefinitionPool $definitionPool, NameConverterInterface $nameConverter = null)
     {
         $this->propertyNameCollectionFactory = $propertyNameCollectionFactory;
         $this->propertyMetadataFactory = $propertyMetadataFactory;
         $this->typeExtractor = $typeExtractor;
+        $this->definitionPool = $definitionPool;
         $this->nameConverter = $nameConverter;
     }
 
     /**
-     * @param \ArrayObject     $definitions
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $resourceClass
-     * @param array|null       $serializerContext
-     *
+     * @param Definition $object
+     * @param null $format
+     * @param array $context
      * @return string
      */
-    public function normalize(\ArrayObject $definitions, ResourceMetadata $resourceMetadata, string $resourceClass, array $serializerContext = null): string
+    public function normalize($object, $format = null, array $context = array()): string
     {
-        $definitionKey = $this->getDefinitionKey($resourceMetadata->getShortName(), (array) ($serializerContext[AbstractNormalizer::GROUPS] ?? []));
+        $definitionKey = $this->getDefinitionKey($object->getResourceMetadata()->getShortName(), (array) ($object->getSerializerContext()[AbstractNormalizer::GROUPS] ?? []));
 
-        if (!isset($definitions[$definitionKey])) {
-            $definitions[$definitionKey] = [];  // Initialize first to prevent infinite loop
-            $definitions[$definitionKey] = $this->getDefinitionSchema($resourceClass, $resourceMetadata, $definitions, $serializerContext);
+        if (null !== $this->definitionPool->getDefinition($definitionKey)) {
+//            $this->definitionPool->setDefinition($definitionKey, new \ArrayObject());  // Initialize first to prevent infinite loop
+            $this->definitionPool->setDefinition($definitionKey, $this->getDefinitionSchema($object->getResourceClass(), $object->getResourceMetadata(), $object->getSerializerContext()));
         }
 
         return $definitionKey;
@@ -69,12 +72,11 @@ final class DefinitionNormalizer implements NormalizerInterface
      *
      * @param string           $resourceClass
      * @param ResourceMetadata $resourceMetadata
-     * @param \ArrayObject     $definitions
      * @param array|null       $serializerContext
      *
      * @return \ArrayObject
      */
-    private function getDefinitionSchema(string $resourceClass, ResourceMetadata $resourceMetadata, \ArrayObject $definitions, array $serializerContext = null): \ArrayObject
+    private function getDefinitionSchema(string $resourceClass, ResourceMetadata $resourceMetadata, array $serializerContext = null): \ArrayObject
     {
         $definitionSchema = new \ArrayObject(['type' => 'object']);
 
@@ -95,7 +97,7 @@ final class DefinitionNormalizer implements NormalizerInterface
                 $definitionSchema['required'][] = $normalizedPropertyName;
             }
 
-            $definitionSchema['properties'][$normalizedPropertyName] = $this->getPropertySchema($propertyMetadata, $definitions, $serializerContext);
+            $definitionSchema['properties'][$normalizedPropertyName] = $this->getPropertySchema($propertyMetadata, $serializerContext);
         }
 
         return $definitionSchema;
@@ -107,12 +109,11 @@ final class DefinitionNormalizer implements NormalizerInterface
      * @see https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md#schemaObject
      *
      * @param PropertyMetadata $propertyMetadata
-     * @param \ArrayObject     $definitions
      * @param array|null       $serializerContext
      *
      * @return \ArrayObject
      */
-    private function getPropertySchema(PropertyMetadata $propertyMetadata, \ArrayObject $definitions, array $serializerContext = null): \ArrayObject
+    private function getPropertySchema(PropertyMetadata $propertyMetadata, array $serializerContext = null): \ArrayObject
     {
         $propertySchema = new \ArrayObject($propertyMetadata->getAttributes()['swagger_context'] ?? []);
 
@@ -137,8 +138,13 @@ final class DefinitionNormalizer implements NormalizerInterface
             $className = $valueType->getClassName();
         }
 
-        $valueSchema = $this->typeExtractor->getType($builtinType, $isCollection, $className, $propertyMetadata->isReadableLink(), $definitions, $serializerContext);
+        $valueSchema = $this->typeExtractor->getType($builtinType, $isCollection, $className, $propertyMetadata->isReadableLink(), $serializerContext);
 
         return new \ArrayObject((array) $propertySchema + $valueSchema);
+    }
+
+    public function supportsNormalization($data, $format = null)
+    {
+        return $data instanceof Definition;
     }
 }

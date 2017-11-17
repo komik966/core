@@ -11,7 +11,7 @@
 
 declare(strict_types=1);
 
-namespace ApiPlatform\Core\Swagger\Serializer;
+namespace ApiPlatform\Core\Swagger\Extractor;
 
 use ApiPlatform\Core\Api\OperationType;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
@@ -22,7 +22,7 @@ final class ContextExtractor
      * @param string           $operationType
      * @param bool             $denormalization
      * @param ResourceMetadata $resourceMetadata
-     * @param string           $operationType
+     * @param string           $operationName
      *
      * @return array|null
      */

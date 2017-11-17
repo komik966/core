@@ -26,11 +26,10 @@ final class PostOperationNormalizer implements NormalizerInterface
      * @param string           $resourceClass
      * @param string           $resourceShortName
      * @param string           $operationName
-     * @param \ArrayObject     $definitions
      *
      * @return \ArrayObject
      */
-    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName, \ArrayObject $definitions)
+    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName)
     {
         $pathOperation['consumes'] ?? $pathOperation['consumes'] = $mimeTypes;
         $pathOperation['produces'] ?? $pathOperation['produces'] = $mimeTypes;
@@ -39,14 +38,14 @@ final class PostOperationNormalizer implements NormalizerInterface
             'name' => lcfirst($resourceShortName),
             'in' => 'body',
             'description' => sprintf('The new %s resource', $resourceShortName),
-            'schema' => ['$ref' => sprintf('#/definitions/%s', $this->getDefinition($definitions, $resourceMetadata, $resourceClass,
+            'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($resourceMetadata, $resourceClass,
                 $this->getSerializerContext($operationType, true, $resourceMetadata, $operationName)
             ))],
         ]];
         $pathOperation['responses'] ?? $pathOperation['responses'] = [
             '201' => [
                 'description' => sprintf('%s resource created', $resourceShortName),
-                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->getDefinition($definitions, $resourceMetadata, $resourceClass,
+                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($resourceMetadata, $resourceClass,
                     $this->getSerializerContext($operationType, false, $resourceMetadata, $operationName)
                 ))],
             ],
