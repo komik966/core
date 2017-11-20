@@ -81,10 +81,13 @@ final class DocumentationNormalizer implements NormalizerInterface
 
         foreach ($object->getResourceNameCollection() as $resourceClass) {
             $resourceMetadata = $this->resourceMetadataFactory->create($resourceClass);
-            $resourceShortName = $resourceMetadata->getShortName();
 
-            $paths->append($this->serializer->normalize(new Path($resourceClass, $resourceShortName, $resourceMetadata, $mimeTypes, OperationType::COLLECTION)));
-            $paths->append($this->serializer->normalize(new Path($resourceClass, $resourceShortName, $resourceMetadata, $mimeTypes, OperationType::ITEM)));
+            if(null !== $collectionPath = new Path($resourceClass, $resourceMetadata, $mimeTypes, OperationType::COLLECTION)) {
+                $paths->append($this->serializer->normalize($collectionPath));
+            }
+            if(null !== $itemPath = new Path($resourceClass, $resourceMetadata, $mimeTypes, OperationType::ITEM)) {
+                $paths->append($this->serializer->normalize($itemPath));
+            }
 
             if (null === $this->subresourceOperationFactory) {
                 continue;

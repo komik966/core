@@ -16,26 +16,24 @@ namespace ApiPlatform\Core\Swagger\Serializer;
 namespace Swagger\Serializer;
 
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
+use Swagger\DTO\PutOperation;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 final class PutOperationNormalizer implements NormalizerInterface
 {
     /**
-     * @param \ArrayObject     $pathOperation
-     * @param array            $mimeTypes
-     * @param string           $operationType
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $resourceClass
-     * @param string           $resourceShortName
-     * @param string           $operationName
-     *
-     * @return \ArrayObject
+     * @param PutOperation $object
+     * @param null $format
+     * @param array $context
+     * @return mixed
      */
-    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName)
+    public function normalize($object, $format = null, array $context = array())
     {
-        $pathOperation['consumes'] ?? $pathOperation['consumes'] = $mimeTypes;
-        $pathOperation['produces'] ?? $pathOperation['produces'] = $mimeTypes;
-        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Replaces the %s resource.', $resourceShortName);
+        $pathOperation = clone $object;
+
+        $pathOperation['consumes'] ?? $pathOperation['consumes'] = $object->getMimeTypes();
+        $pathOperation['produces'] ?? $pathOperation['produces'] = $object->getMimeTypes();
+        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Replaces the %s resource.', $object->getResourceShortName());
         $pathOperation['parameters'] ?? $pathOperation['parameters'] = [
             [
                 'name' => 'id',
@@ -44,19 +42,19 @@ final class PutOperationNormalizer implements NormalizerInterface
                 'required' => true,
             ],
             [
-                'name' => lcfirst($resourceShortName),
+                'name' => lcfirst($object->getResourceShortName()),
                 'in' => 'body',
-                'description' => sprintf('The updated %s resource', $resourceShortName),
-                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($resourceMetadata, $resourceClass,
-                    $this->getSerializerContext($operationType, true, $resourceMetadata, $operationName)
+                'description' => sprintf('The updated %s resource', $object->getResourceShortName()),
+                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($object->getResourceMetadata(), $object->getResourceClass(),
+                    $this->getSerializerContext($object->getOperationType(), true, $object->getResourceMetadata(), $object->getOperationName())
                 ))],
             ],
         ];
         $pathOperation['responses'] ?? $pathOperation['responses'] = [
             '200' => [
-                'description' => sprintf('%s resource updated', $resourceShortName),
-                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($resourceMetadata, $resourceClass,
-                    $this->getSerializerContext($operationType, false, $resourceMetadata, $operationName)
+                'description' => sprintf('%s resource updated', $object->getResourceShortName()),
+                'schema' => ['$ref' => sprintf('#/definitions/%s', $this->definitionNormalizer($object->getResourceMetadata(), $object->getResourceClass(),
+                    $this->getSerializerContext($object->getOperationType(), false, $object->getResourceMetadata(), $object->getOperationName())
                 ))],
             ],
             '400' => ['description' => 'Invalid input'],
@@ -64,5 +62,10 @@ final class PutOperationNormalizer implements NormalizerInterface
         ];
 
         return $pathOperation;
+    }
+
+    public function supportsNormalization($data, $format = null): bool
+    {
+        return $data instanceof PutOperation;
     }
 }

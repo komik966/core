@@ -13,24 +13,27 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Swagger\Serializer;
 
-use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
+use ApiPlatform\Core\Api\OperationType;
+use ApiPlatform\Core\Swagger\Extractor\ContextExtractor;
+use Swagger\DTO\Definition;
+use Swagger\DTO\FilterParameters;
+use Swagger\DTO\GetOperation;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\Serializer\Serializer;
 
 final class GetOperationNormalizer implements NormalizerInterface
 {
     private $contextExtractor;
-    private $definitionNormalizer;
-    private $filterParametersNormalizer;
+    private $serializer;
     private $paginationEnabled;
     private $clientItemsPerPage;
     private $paginationPageParameterName;
     private $itemsPerPageParameterName;
 
-    public function __construct(ContextExtractor $contextExtractor, DefinitionNormalizer $definitionNormalizer, FilterParametersNormalizer $filterParametersNormalizer,$paginationEnabled = true, $clientItemsPerPage = false, $paginationPageParameterName = 'page', $itemsPerPageParameterName = 'itemsPerPage')
+    public function __construct(ContextExtractor $contextExtractor, Serializer $serializer, $paginationEnabled = true, $clientItemsPerPage = false, $paginationPageParameterName = 'page', $itemsPerPageParameterName = 'itemsPerPage')
     {
         $this->contextExtractor = $contextExtractor;
-        $this->definitionNormalizer = $definitionNormalizer;
-        $this->filterParametersNormalizer = $filterParametersNormalizer;
+        $this->serializer = $serializer;
         $this->paginationEnabled = $paginationEnabled;
         $this->clientItemsPerPage = $clientItemsPerPage;
         $this->paginationPageParameterName = $paginationPageParameterName;
@@ -38,28 +41,24 @@ final class GetOperationNormalizer implements NormalizerInterface
     }
 
     /**
-     * @param \ArrayObject     $pathOperation
-     * @param array            $mimeTypes
-     * @param string           $operationType
-     * @param ResourceMetadata $resourceMetadata
-     * @param string           $resourceClass
-     * @param string           $resourceShortName
-     * @param string           $operationName
-     *
-     * @return \ArrayObject
+     * @param GetOperation $object
+     * @param null $format
+     * @param array $context
+     * @return mixed
      */
-    public function normalize(\ArrayObject $pathOperation, array $mimeTypes, string $operationType, ResourceMetadata $resourceMetadata, string $resourceClass, string $resourceShortName, string $operationName)
+    public function normalize($object, $format = null, array $context = array())
     {
-        $serializerContext = $this->contextExtractor->getSerializerContext($operationType, false, $resourceMetadata, $operationName);
-        $responseDefinitionKey = $this->definitionNormalizer->normalize($resourceMetadata, $resourceClass, $serializerContext);
+        $serializerContext = $this->contextExtractor->getSerializerContext($object->getOperationType(), false, $object->getResourceMetadata(), $object->getOperationName());
+        $responseDefinitionKey = $this->serializer->normalize(new Definition($object->getResourceMetadata(), $object->getResourceClass(), $serializerContext));
+        $pathOperation = clone $object->getPathOperation();
 
-        $pathOperation['produces'] ?? $pathOperation['produces'] = $mimeTypes;
+        $pathOperation['produces'] ?? $pathOperation['produces'] = $object->getMimeTypes();
 
-        if (OperationType::COLLECTION === $operationType) {
-            $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Retrieves the collection of %s resources.', $resourceShortName);
+        if (OperationType::COLLECTION === $object->getOperationType()) {
+            $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Retrieves the collection of %s resources.', $object->getResourceShortName());
             $pathOperation['responses'] ?? $pathOperation['responses'] = [
                 '200' => [
-                    'description' => sprintf('%s collection response', $resourceShortName),
+                    'description' => sprintf('%s collection response', $object->getResourceShortName()),
                     'schema' => [
                         'type' => 'array',
                         'items' => ['$ref' => sprintf('#/definitions/%s', $responseDefinitionKey)],
@@ -67,14 +66,14 @@ final class GetOperationNormalizer implements NormalizerInterface
                 ],
             ];
 
-            if (!isset($pathOperation['parameters']) && $parameters = $this->filterParametersNormalizer->normalize($resourceClass, $operationName, $resourceMetadata, $serializerContext)) {
+            if (!isset($pathOperation['parameters']) && $parameters = $this->serializer->normalize(new FilterParameters($object->getResourceClass(), $object->getOperationName(), $object->getResourceMetadata(), $serializerContext))) {
                 $pathOperation['parameters'] = $parameters;
             }
 
-            if ($this->paginationEnabled && $resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_enabled', true, true)) {
+            if ($this->paginationEnabled && $object->getResourceMetadata()->getCollectionOperationAttribute($object->getOperationName(), 'pagination_enabled', true, true)) {
                 $pathOperation['parameters'][] = $this->getPaginationParameters();
 
-                if ($resourceMetadata->getCollectionOperationAttribute($operationName, 'pagination_client_items_per_page', $this->clientItemsPerPage, true)) {
+                if ($object->getResourceMetadata()->getCollectionOperationAttribute($object->getOperationName(), 'pagination_client_items_per_page', $this->clientItemsPerPage, true)) {
                     $pathOperation['parameters'][] = $this->getItemsParPageParameters();
                 }
             }
@@ -82,7 +81,7 @@ final class GetOperationNormalizer implements NormalizerInterface
             return $pathOperation;
         }
 
-        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Retrieves a %s resource.', $resourceShortName);
+        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Retrieves a %s resource.', $object->getResourceShortName());
         $pathOperation['parameters'] ?? $pathOperation['parameters'] = [[
             'name' => 'id',
             'in' => 'path',
@@ -91,7 +90,7 @@ final class GetOperationNormalizer implements NormalizerInterface
         ]];
         $pathOperation['responses'] ?? $pathOperation['responses'] = [
             '200' => [
-                'description' => sprintf('%s resource response', $resourceShortName),
+                'description' => sprintf('%s resource response', $object->getResourceShortName()),
                 'schema' => ['$ref' => sprintf('#/definitions/%s', $responseDefinitionKey)],
             ],
             '404' => ['description' => 'Resource not found'],
@@ -99,6 +98,7 @@ final class GetOperationNormalizer implements NormalizerInterface
 
         return $pathOperation;
     }
+
     /**
      * Returns pagination parameters for the "get" collection operation.
      *
@@ -129,5 +129,10 @@ final class GetOperationNormalizer implements NormalizerInterface
             'type' => 'integer',
             'description' => 'The number of items per page',
         ];
+    }
+
+    public function supportsNormalization($data, $format = null): bool
+    {
+        return $data instanceof GetOperation;
     }
 }

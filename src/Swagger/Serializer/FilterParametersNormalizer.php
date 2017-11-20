@@ -15,8 +15,9 @@ namespace ApiPlatform\Core\Swagger\Serializer;
 
 use ApiPlatform\Core\Api\FilterCollection;
 use ApiPlatform\Core\Api\FilterLocatorTrait;
-use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
+use ApiPlatform\Core\Swagger\Extractor\TypeExtractor;
 use Psr\Container\ContainerInterface;
+use Swagger\DTO\FilterParameters;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 final class FilterParametersNormalizer implements NormalizerInterface
@@ -35,35 +36,31 @@ final class FilterParametersNormalizer implements NormalizerInterface
     }
 
     /**
-     * Gets Swagger parameters corresponding to enabled filters.
-     *
-     * @param string           $resourceClass
-     * @param string           $operationName
-     * @param ResourceMetadata $resourceMetadata
-     * @param array|null       $serializerContext
-     *
+     * @param FilterParameters $object
+     * @param null $format
+     * @param array $context
      * @return array
      */
-    public function normalize(string $resourceClass, string $operationName, ResourceMetadata $resourceMetadata, array $serializerContext = null): array
+    public function normalize($object, $format = null, array $context = array()): array
     {
         if (null === $this->filterLocator) {
             return [];
         }
 
         $parameters = [];
-        $resourceFilters = $resourceMetadata->getCollectionOperationAttribute($operationName, 'filters', [], true);
+        $resourceFilters = $object->getResourceMetadata()->getCollectionOperationAttribute($object->getOperationName(), 'filters', [], true);
         foreach ($resourceFilters as $filterId) {
             if (!$filter = $this->getFilter($filterId)) {
                 continue;
             }
 
-            foreach ($filter->getDescription($resourceClass) as $name => $data) {
+            foreach ($filter->getDescription($object->getResourceClass()) as $name => $data) {
                 $parameter = [
                     'name' => $name,
                     'in' => 'query',
                     'required' => $data['required'],
                 ];
-                $parameter += $this->typeExtractor->getType($data['type'], false, null, null, $serializerContext);
+                $parameter += $this->typeExtractor->getType($data['type'], false, null, null, $object->getSerializerContext());
 
                 if (isset($data['swagger'])) {
                     $parameter = $data['swagger'] + $parameter;
@@ -74,5 +71,10 @@ final class FilterParametersNormalizer implements NormalizerInterface
         }
 
         return $parameters;
+    }
+
+    public function supportsNormalization($data, $format = null): bool
+    {
+        return $data instanceof FilterParameters;
     }
 }

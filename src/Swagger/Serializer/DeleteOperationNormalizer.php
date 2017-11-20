@@ -13,21 +13,24 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Swagger\Serializer;
 
+use Swagger\DTO\DeleteOperation;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 final class DeleteOperationNormalizer implements NormalizerInterface
 {
     /**
-     * @param \ArrayObject $pathOperation
-     * @param string       $resourceShortName
-     *
+     * @param DeleteOperation $object
+     * @param null $format
+     * @param array $context
      * @return \ArrayObject
      */
-    public function normalize(\ArrayObject $pathOperation, string $resourceShortName): \ArrayObject
+    public function normalize($object, $format = null, array $context = array()): \ArrayObject
     {
-        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Removes the %s resource.', $resourceShortName);
+        $pathOperation = clone $object->getPathOperation();
+
+        $pathOperation['summary'] ?? $pathOperation['summary'] = sprintf('Removes the %s resource.', $object->getResourceShortName());
         $pathOperation['responses'] ?? $pathOperation['responses'] = [
-            '204' => ['description' => sprintf('%s resource deleted', $resourceShortName)],
+            '204' => ['description' => sprintf('%s resource deleted', $object->getResourceShortName())],
             '404' => ['description' => 'Resource not found'],
         ];
 
@@ -39,5 +42,10 @@ final class DeleteOperationNormalizer implements NormalizerInterface
         ]];
 
         return $pathOperation;
+    }
+
+    public function supportsNormalization($data, $format = null): bool
+    {
+        return $data instanceof DeleteOperation;
     }
 }

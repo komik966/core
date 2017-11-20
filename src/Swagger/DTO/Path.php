@@ -4,22 +4,28 @@ declare(strict_types=1);
 
 namespace ApiPlatform\Core\Swagger\DTO;
 
+use ApiPlatform\Core\Api\OperationType;
 use ApiPlatform\Core\Metadata\Resource\ResourceMetadata;
 
 class Path
 {
     private $resourceClass;
-    private $resourceShortName;
     private $resourceMetadata;
     private $mimeTypes;
     private $operationType;
+    private $operations;
 
-    public function __construct(string $resourceClass, string $resourceShortName, ResourceMetadata $resourceMetadata, array $mimeTypes, string $operationType) {
+    public function __construct(
+        string $resourceClass,
+        ResourceMetadata $resourceMetadata,
+        array $mimeTypes,
+        string $operationType
+    ) {
         $this->resourceClass = $resourceClass;
-        $this->resourceShortName = $resourceShortName;
         $this->resourceMetadata = $resourceMetadata;
         $this->mimeTypes = $mimeTypes;
         $this->operationType = $operationType;
+        $this->operations = OperationType::COLLECTION === $operationType ? $resourceMetadata->getCollectionOperations() : $resourceMetadata->getItemOperations();
     }
 
     public function getResourceClass(): string
@@ -29,7 +35,7 @@ class Path
 
     public function getResourceShortName(): string
     {
-        return $this->resourceShortName;
+        return $this->resourceMetadata->getShortName();
     }
 
     public function getResourceMetadata(): ResourceMetadata
@@ -45,5 +51,10 @@ class Path
     public function getOperationType(): string
     {
         return $this->operationType;
+    }
+
+    public function getOperations(): ?array
+    {
+        return $this->operations;
     }
 }
